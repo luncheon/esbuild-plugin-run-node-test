@@ -1,65 +1,64 @@
 import esbuild from "esbuild";
 import pipe from "esbuild-plugin-pipe";
 import runNodeTest from "esbuild-plugin-run-node-test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
-import { setTimeout } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
+const __dirname = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const __resolve = filename => path.resolve(__dirname, filename);
 
-test("dummy");
-await setTimeout(100);
+fs.rmSync(__resolve("dist"), { recursive: true, force: true });
 
-console.log("\n\nplugins: [runNodeTest()]\n");
-await esbuild.build({
-  entryPoints: ["src/app.tsx"],
-  outdir: "dist/",
-  format: "esm",
-  jsxFactory: "h",
-  jsxFragment: "Fragment",
-  bundle: true,
-  plugins: [runNodeTest()],
+/** @type esbuild.BuildOptions */
+const commonOptions = { outdir: __resolve("dist/"), format: "esm", jsxFactory: "h", jsxFragment: "Fragment", bundle: true };
+
+test("plugins: [runNodeTest()]", async () => {
+  await esbuild.build({
+    ...commonOptions,
+    entryPoints: [__resolve("src/app.tsx")],
+    plugins: [runNodeTest()],
+  });
+  assert(!fs.readFileSync("dist/app.js", "utf8").includes("node:test"));
 });
 
-console.log("\n\nplugins: [runNodeTest({ run: false })]\n");
-await esbuild.build({
-  entryPoints: { "run-false": "src/app.tsx" },
-  outdir: "dist/",
-  format: "esm",
-  jsxFactory: "h",
-  jsxFragment: "Fragment",
-  bundle: true,
-  plugins: [runNodeTest({ run: false })],
+test("plugins: [runNodeTest({ run: false })]", async () => {
+  await esbuild.build({
+    ...commonOptions,
+    entryPoints: { "run-false": __resolve("src/app.tsx") },
+    plugins: [runNodeTest({ run: false })],
+  });
+  assert(!fs.readFileSync("dist/run-false.js", "utf8").includes("node:test"));
 });
 
-console.log("\n\nplugins: [runNodeTest({ filter: /add.ts/ })]\n");
-await esbuild.build({
-  entryPoints: { "filter-add": "src/app.tsx" },
-  outdir: "dist/",
-  format: "esm",
-  platform: "node",
-  jsxFactory: "h",
-  jsxFragment: "Fragment",
-  bundle: true,
-  plugins: [runNodeTest({ filter: /add\.ts/ })],
+test("plugins: [runNodeTest({ filter: /add.ts/ })]", async () => {
+  await esbuild.build({
+    ...commonOptions,
+    entryPoints: { "filter-add": __resolve("src/app.tsx") },
+    platform: "node",
+    plugins: [runNodeTest({ filter: /add\.ts/ })],
+  });
+  assert(fs.readFileSync("dist/filter-add.js", "utf8").includes("node:test"));
+  assert(fs.readFileSync("dist/filter-add.js", "utf8").includes("mul.js"));
 });
 
-console.log('\n\nplugins: [runNodeTest({ removeImports: ["./mul"] })]\n');
-await esbuild.build({
-  entryPoints: { "remove-mul": "src/app.tsx" },
-  outdir: "dist/",
-  format: "esm",
-  jsxFactory: "h",
-  jsxFragment: "Fragment",
-  bundle: true,
-  plugins: [runNodeTest({ removeImports: ["node:assert/strict", "./mul"] })],
+test('plugins: [runNodeTest({ removeImports: ["./mul"] })]', async () => {
+  await esbuild.build({
+    ...commonOptions,
+    entryPoints: { "remove-mul": __resolve("src/app.tsx") },
+    plugins: [runNodeTest({ removeImports: ["node:assert/strict", "./mul"] })],
+  });
+  assert(!fs.readFileSync("dist/remove-mul.js", "utf8").includes("node:test"));
+  assert(!fs.readFileSync("dist/remove-mul.js", "utf8").includes("mul.js"));
 });
 
-console.log("\n\nplugins: [pipe({ filter: /.[cm]?[jt]sx?$/, plugins: [runNodeTestInstance] }), runNodeTestInstance]\n");
-const runNodeTestInstance = runNodeTest({ filter: /^$/ });
-await esbuild.build({
-  entryPoints: { pipe: "src/app.tsx" },
-  outdir: "dist/",
-  format: "esm",
-  jsxFactory: "h",
-  jsxFragment: "Fragment",
-  bundle: true,
-  plugins: [pipe({ filter: /\.[cm]?[jt]sx?$/, plugins: [runNodeTestInstance] }), runNodeTestInstance],
+test("plugins: [pipe({ filter: /.[cm]?[jt]sx?$/, plugins: [runNodeTestInstance] }), runNodeTestInstance]", async () => {
+  const runNodeTestInstance = runNodeTest({ filter: /^$/ });
+  await esbuild.build({
+    ...commonOptions,
+    entryPoints: { pipe: __resolve("src/app.tsx") },
+    plugins: [pipe({ filter: /\.[cm]?[jt]sx?$/, plugins: [runNodeTestInstance] }), runNodeTestInstance],
+  });
+  assert(!fs.readFileSync("dist/pipe.js", "utf8").includes("node:test"));
 });
