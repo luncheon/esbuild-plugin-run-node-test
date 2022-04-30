@@ -310,9 +310,9 @@ n = c.slice, l = {
 // src/add.ts
 var add = (x2, y2) => x2 + y2;
 
-// src/mul.ts
+// src/mul.js
 var mul = (x2, y2) => x2 * y2;
 
 // src/app.tsx
-var App = () => /* @__PURE__ */ v(d, null, /* @__PURE__ */ v("div", null, "20 + 22 = ", add(20, 22)), /* @__PURE__ */ v("div", null, "6 \xD7 7 = ", mul(6, 7)));
+var App = () => /* @__PURE__ */ v(d, null, /* @__PURE__ */ v("p", null, "20 + 22 = ", add(20, 22)), /* @__PURE__ */ v("p", null, "6 \xD7 7 = ", mul(6, 7)));
 S(/* @__PURE__ */ v(App, null), document.body);

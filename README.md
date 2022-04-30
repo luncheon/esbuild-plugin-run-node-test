@@ -3,22 +3,6 @@
 Please write tests in your source file.  
 This [`esbuild`](https://esbuild.github.io/) plugin runs the tests and remove them from the bundle.
 
-## Behavior
-
-When bundling source files using `esbuild` with this plugin,
-
-<!-- prettier-ignore -->
-1. `let testSourceCode = ""`
-1. each source file to be bundled is parsed using [`swc`](https://swc.rs/)
-    - if a source file includes `import test from "node:test"` and the imported `test` is called:
-        - remove all `test(...)`
-        - `` testSourceCode += `import "${the source file path}";` ``
-    - remove the following import statements:
-        - `"node:test"`
-        - `"node:assert"`
-        - `"node:assert/strict"`
-1. finally, when the bundling is complete, `testSourceCode` is also bundled using `esbuild` and run
-
 ## Installation
 
 ```
@@ -132,18 +116,51 @@ var App = () => /* @__PURE__ */ v(d, null, /* @__PURE__ */ v("div", null, "20 + 
 S(/* @__PURE__ */ v(App, null), document.body);
 ```
 
+## Behavior
+
+When bundling source files using `esbuild` with this plugin,
+
+<!-- prettier-ignore -->
+1. `let testSourceCode = ""`
+1. each source file to be bundled is parsed using [`swc`](https://swc.rs/)
+    - if a source file includes `import test from "node:test"` and the imported `test` is called:
+        - remove all `test(...)`
+        - `` testSourceCode += `import "${the source file path}";` ``
+    - remove the following import statements (by default):
+        - `"node:test"`
+        - `"node:assert"`
+        - `"node:assert/strict"`
+1. finally, when the bundling is complete, `testSourceCode` is also bundled using `esbuild` and run
+
 ## Options
 
 The following are the options for this plugin and their default values.
 
 ```js
 runNodeTest({
+  // narrow down the files to which this plugin should be applied.
+  // https://esbuild.github.io/plugins/#filters
   filter: /\.[mc]?[jt]sx?$/,
+
+  // if `false`, just remove import statements and `test(...)`, and tests are not run.
+  run: true,
+
+  // modules to be removed.
+  removeImports: [
+    // "node:test" is removed even if not specified.
+    "node:assert",
+    "node:assert/strict",
+  ],
 });
 ```
 
-- `filter` is an option for `esbuild` to narrow down the files to which this plugin should be applied.  
-  https://esbuild.github.io/plugins/#filters
+## Limitations
+
+Currently, tests are not run in [`esbuild serve mode`](https://esbuild.github.io/api/#serve).  
+Test code removal is fine.
+
+- Plugins' onEnd callback isn't triggerred in serve mode · Issue #1384 · evanw/esbuild  
+  https://github.com/evanw/esbuild/issues/1384
 
 ## With `esbuild-plugin-pipe`
 
@@ -158,7 +175,7 @@ const runNodeTestInstance = runNodeTest({ filter: /^$/ });
 
 esbuild.build({
   entryPoints: ["src/app.ts"],
-  outdir: "dist",
+  outdir: "dist/",
   bundle: true,
   minify: true,
   plugins: [

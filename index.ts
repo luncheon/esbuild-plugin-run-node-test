@@ -10,13 +10,9 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import vm from "node:vm";
 
-export interface EsbuildPluginNodeTestOptions {
-  readonly filter?: RegExp;
-}
-
 const name = "esbuild-plugin-run-node-test";
 
-const stripNodeTest = (script: SwcModule): [SwcModule, boolean] => {
+const removeNodeTest = (script: SwcModule, removeImports: readonly string[]): [SwcModule, boolean] => {
   let existsNodeTest = false;
   let importedNodeTestIdentifier: string | undefined;
   const body = script.body.filter(m => {
@@ -25,7 +21,7 @@ const stripNodeTest = (script: SwcModule): [SwcModule, boolean] => {
         importedNodeTestIdentifier = m.specifiers[0].local.value;
         return false;
       }
-      if (m.source.value === "node:assert" || m.source.value === "node:assert/strict") {
+      if (removeImports.includes(m.source.value)) {
         return false;
       }
     }
@@ -44,7 +40,7 @@ const stripNodeTest = (script: SwcModule): [SwcModule, boolean] => {
   return [{ ...script, body }, existsNodeTest];
 };
 
-const runNodeTest = ({ filter }: EsbuildPluginNodeTestOptions = {}) => {
+const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = ["node:assert", "node:assert/strict"] } = {}) => {
   let testSourceCode = "";
   const resolveDir = process.cwd();
 
@@ -52,13 +48,13 @@ const runNodeTest = ({ filter }: EsbuildPluginNodeTestOptions = {}) => {
     args: EsbuildOnLoadArgs,
     parse: (swcParseOptions: SwcParseOptions) => Promise<SwcModule>,
   ): Promise<EsbuildOnLoadResult> => {
-    const sourceScript = await parse(
-      /\.[cm]?tsx?$/.test(args.path)
+    const sourceSwcModule = await parse(
+      /tsx?$/.test(args.path)
         ? { syntax: "typescript", tsx: args.path.endsWith("x") }
         : { syntax: "ecmascript", jsx: args.path.endsWith("x") },
     );
-    const [testStrippedScript, existsNodeTest] = stripNodeTest(sourceScript);
-    const { code } = await swcPrint(testStrippedScript, { sourceMaps: false });
+    const [transformedSwcModule, existsNodeTest] = removeNodeTest(sourceSwcModule, removeImports);
+    const { code } = await swcPrint(transformedSwcModule, { sourceMaps: false });
     existsNodeTest && (testSourceCode += `import "./${path.relative(resolveDir, args.path)}";\n`);
     return { contents: code, loader: args.path.replace(/.*\.[cm]?/, "") as "js" | "jsx" | "ts" | "tsx" };
   };
@@ -76,24 +72,23 @@ const runNodeTest = ({ filter }: EsbuildPluginNodeTestOptions = {}) => {
         testSourceCode = "";
       });
 
-      build.onLoad({ filter: filter ?? /\.[mc]?[jt]sx?$/ }, args =>
-        transform(args, swcParseOptions => swcParseFile(args.path, swcParseOptions)),
-      );
+      build.onLoad({ filter }, args => transform(args, swcParseOptions => swcParseFile(args.path, swcParseOptions)));
 
-      build.onEnd(async () => {
-        const resolveDir = process.cwd();
-        const { outputFiles } = await build.esbuild.build({
-          ...build.initialOptions,
-          entryPoints: undefined,
-          format: "cjs",
-          platform: "node",
-          plugins: build.initialOptions.plugins?.filter(plugin => plugin.name !== name),
-          stdin: { contents: testSourceCode, resolveDir, loader: "ts" },
-          sourcemap: false,
-          write: false,
+      run &&
+        build.onEnd(async () => {
+          const resolveDir = process.cwd();
+          const { outputFiles } = await build.esbuild.build({
+            ...build.initialOptions,
+            entryPoints: undefined,
+            format: "cjs",
+            platform: "node",
+            plugins: build.initialOptions.plugins?.filter(plugin => plugin.name !== name),
+            stdin: { contents: testSourceCode, resolveDir, loader: "ts" },
+            sourcemap: false,
+            write: false,
+          });
+          vm.runInNewContext(outputFiles[0].text, { require: createRequire(import.meta.url) }, { breakOnSigint: true });
         });
-        vm.runInNewContext(outputFiles[0].text, { require: createRequire(import.meta.url) }, { breakOnSigint: true });
-      });
     },
   };
 };

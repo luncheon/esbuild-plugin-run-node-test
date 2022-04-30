@@ -1,8 +1,9 @@
 import { OnLoadArgs as EsbuildOnLoadArgs, OnLoadResult as EsbuildOnLoadResult, PluginBuild as EsbuildPluginBuild } from "esbuild";
-export interface EsbuildPluginNodeTestOptions {
-    readonly filter?: RegExp;
-}
-declare const runNodeTest: ({ filter }?: EsbuildPluginNodeTestOptions) => {
+declare const runNodeTest: ({ filter, run, removeImports }?: {
+    filter?: RegExp | undefined;
+    run?: boolean | undefined;
+    removeImports?: string[] | undefined;
+}) => {
     name: string;
     setup: (build: EsbuildPluginBuild, pipe?: {
         transform: {
