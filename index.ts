@@ -1,10 +1,14 @@
 import {
+  Identifier as SwcIdentifier,
   Module as SwcModule,
+  ModuleItem as SwcModuleItem,
   parse as swcParse,
   parseFile as swcParseFile,
   ParseOptions as SwcParseOptions,
   print as swcPrint,
+  Statement as SwcStatement,
 } from "@swc/core";
+import { Visitor as SwcVisitor } from "@swc/core/Visitor.js";
 import { OnLoadArgs as EsbuildOnLoadArgs, OnLoadResult as EsbuildOnLoadResult, PluginBuild as EsbuildPluginBuild } from "esbuild";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -12,33 +16,46 @@ import vm from "node:vm";
 
 const name = "esbuild-plugin-run-node-test";
 
-const removeNodeTest = (script: SwcModule, removeImports: readonly string[]): [SwcModule, boolean] => {
-  let existsNodeTest = false;
-  let importedNodeTestIdentifier: string | undefined;
-  const body = script.body.filter(m => {
-    if (m.type === "ImportDeclaration" && !m.typeOnly) {
-      if (m.source.value === "node:test" && m.specifiers.length === 1 && m.specifiers[0].type === "ImportDefaultSpecifier") {
-        importedNodeTestIdentifier = m.specifiers[0].local.value;
-        return false;
-      }
-      if (removeImports.includes(m.source.value)) {
-        return false;
-      }
-    }
+class NodeTestRemovalVisitor extends SwcVisitor {
+  existsNodeTest = false;
+  importedNodeTestIdentifier?: SwcIdentifier;
+
+  constructor(private readonly removeImports: readonly string[]) {
+    super();
+  }
+
+  override visitModuleItems(items: SwcModuleItem[]): SwcModuleItem[] {
+    return super.visitModuleItems(
+      items.filter(m => {
+        if (m.type !== "ImportDeclaration" || m.typeOnly) {
+          return true;
+        }
+        if (m.source.value === "node:test" && m.specifiers.length === 1 && m.specifiers[0].type === "ImportDefaultSpecifier") {
+          this.importedNodeTestIdentifier = m.specifiers[0].local;
+          return false;
+        }
+        if (this.removeImports.includes(m.source.value)) {
+          return false;
+        }
+        return true;
+      }),
+    );
+  }
+
+  override visitStatement(s: SwcStatement): SwcStatement {
     if (
-      importedNodeTestIdentifier &&
-      m.type === "ExpressionStatement" &&
-      m.expression.type === "CallExpression" &&
-      m.expression.callee.type === "Identifier" &&
-      m.expression.callee.value === importedNodeTestIdentifier
+      this.importedNodeTestIdentifier &&
+      s.type === "ExpressionStatement" &&
+      s.expression.type === "CallExpression" &&
+      s.expression.callee.type === "Identifier" &&
+      s.expression.callee.value === this.importedNodeTestIdentifier.value
     ) {
-      existsNodeTest = true;
-      return false;
+      this.existsNodeTest = true;
+      return { type: "EmptyStatement", span: s.span };
     }
-    return true;
-  });
-  return [{ ...script, body }, existsNodeTest];
-};
+    return super.visitStatement(s);
+  }
+}
 
 const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = ["node:assert", "node:assert/strict"] } = {}) => {
   let testSourceCode = "";
@@ -48,14 +65,16 @@ const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = [
     args: EsbuildOnLoadArgs,
     parse: (swcParseOptions: SwcParseOptions) => Promise<SwcModule>,
   ): Promise<EsbuildOnLoadResult> => {
-    const sourceSwcModule = await parse(
+    // use `parse()` + `print()` instead of `transform()` because `transform()` cannot preserve jsx.
+    const swcModule: SwcModule = await parse(
       /tsx?$/.test(args.path)
         ? { syntax: "typescript", tsx: args.path.endsWith("x") }
         : { syntax: "ecmascript", jsx: args.path.endsWith("x") },
     );
-    const [transformedSwcModule, existsNodeTest] = removeNodeTest(sourceSwcModule, removeImports);
-    const { code } = await swcPrint(transformedSwcModule, { sourceMaps: false });
-    existsNodeTest && (testSourceCode += `import "./${path.relative(resolveDir, args.path)}";\n`);
+    const nodeTestRemovalVisitor = new NodeTestRemovalVisitor(removeImports);
+    nodeTestRemovalVisitor.visitModule(swcModule);
+    const { code } = await swcPrint(swcModule, { sourceMaps: false });
+    nodeTestRemovalVisitor.existsNodeTest && (testSourceCode += `import "./${path.relative(resolveDir, args.path)}";\n`);
     return { contents: code, loader: args.path.replace(/.*\.[cm]?/, "") as "js" | "jsx" | "ts" | "tsx" };
   };
 
