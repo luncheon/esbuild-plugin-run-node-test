@@ -6,7 +6,7 @@ This [`esbuild`](https://esbuild.github.io/) plugin runs the tests and remove th
 ## Installation
 
 ```
-npm i -D esbuild luncheon/esbuild-plugin-run-node-test
+npm i -D esbuild esbuild-plugin-run-node-test
 ```
 
 ## Usage Example
