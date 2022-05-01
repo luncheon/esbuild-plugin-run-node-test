@@ -134,7 +134,7 @@ When bundling source files using `esbuild` with this plugin,
 
 ## Options
 
-The following are the options for this plugin and their default values.
+The options for this plugin and their default values are as follows:
 
 ```js
 runNodeTest({
@@ -156,11 +156,19 @@ runNodeTest({
 
 ## Limitations
 
-Currently, tests are not run in [`esbuild serve mode`](https://esbuild.github.io/api/#serve).  
-Test code removal is fine.
+<!-- prettier-ignore -->
+- Currently, tests are not run in [`esbuild serve mode`](https://esbuild.github.io/api/#serve). Test code removal is fine.
+    - Plugins' onEnd callback isn't triggerred in serve mode · Issue #1384 · evanw/esbuild  
+      https://github.com/evanw/esbuild/issues/1384
+- Regardless of scope, function call statements whose names match the default import from `"node:test"` are removed.
+    ```js
+    import foo from "node:test";
 
-- Plugins' onEnd callback isn't triggerred in serve mode · Issue #1384 · evanw/esbuild  
-  https://github.com/evanw/esbuild/issues/1384
+    {
+      const foo = () => {};
+      foo(); // will be removed
+    }
+    ```
 
 ## With `esbuild-plugin-pipe`
 
