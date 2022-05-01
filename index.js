@@ -38,6 +38,9 @@ class NodeTestRemovalVisitor extends SwcVisitor {
         }
         return super.visitStatement(s);
     }
+    visitTsType(t) {
+        return t;
+    }
 }
 const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = ["node:assert", "node:assert/strict"] } = {}) => {
     let testSourceCode = "";

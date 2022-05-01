@@ -7,6 +7,7 @@ import {
   ParseOptions as SwcParseOptions,
   print as swcPrint,
   Statement as SwcStatement,
+  TsType as SwcTsType,
 } from "@swc/core";
 import { Visitor as SwcVisitor } from "@swc/core/Visitor.js";
 import { OnLoadArgs as EsbuildOnLoadArgs, OnLoadResult as EsbuildOnLoadResult, PluginBuild as EsbuildPluginBuild } from "esbuild";
@@ -54,6 +55,10 @@ class NodeTestRemovalVisitor extends SwcVisitor {
       return { type: "EmptyStatement", span: s.span };
     }
     return super.visitStatement(s);
+  }
+
+  override visitTsType(t: SwcTsType): SwcTsType {
+    return t;
   }
 }
 
