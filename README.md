@@ -140,7 +140,7 @@ The options for this plugin and their default values are as follows:
 runNodeTest({
   // narrow down the files to which this plugin should be applied.
   // https://esbuild.github.io/plugins/#filters
-  filter: /\.[mc]?[jt]sx?$/,
+  filter: /\.[cm]?[jt]sx?$/,
 
   // if `false`, just remove import statements and `test(...)`, and tests are not run.
   run: true,
@@ -157,6 +157,7 @@ runNodeTest({
 ## Limitations
 
 <!-- prettier-ignore -->
+- Currently, the module format of the test bundle is CommonJS, not ES Module. This imposes some limitations (e.g., top-level `await` cannot be used).
 - Currently, tests are not run in [`esbuild serve mode`](https://esbuild.github.io/api/#serve). Test code removal is fine.
     - Plugins' onEnd callback isn't triggerred in serve mode · Issue #1384 · evanw/esbuild  
       https://github.com/evanw/esbuild/issues/1384
