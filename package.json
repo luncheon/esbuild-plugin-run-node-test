@@ -1,6 +1,6 @@
 {
   "name": "esbuild-plugin-run-node-test",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Please write tests in your source file. This esbuild plugin runs the tests and remove them from the bundle.",
   "license": "WTFPL",
   "type": "module",
