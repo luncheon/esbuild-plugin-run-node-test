@@ -73,8 +73,8 @@ const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = [
     // use `parse()` + `print()` instead of `transform()` because `transform()` cannot preserve jsx.
     const swcModule: SwcModule = await parse(
       /tsx?$/.test(args.path)
-        ? { syntax: "typescript", tsx: args.path.endsWith("x") }
-        : { syntax: "ecmascript", jsx: args.path.endsWith("x") },
+        ? { syntax: "typescript", tsx: args.path.endsWith("x"), target: "es2022" }
+        : { syntax: "ecmascript", jsx: args.path.endsWith("x"), target: "es2022" },
     );
     const nodeTestRemovalVisitor = new NodeTestRemovalVisitor(removeImports);
     nodeTestRemovalVisitor.visitModule(swcModule);
