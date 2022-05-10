@@ -42,7 +42,7 @@ class NodeTestRemovalVisitor extends SwcVisitor {
         return t;
     }
 }
-const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = ["node:assert", "node:assert/strict"] } = {}) => {
+const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = ["node:assert", "node:assert/strict"], testBuildOptions, } = {}) => {
     let testSourceCode = "";
     const resolveDir = process.cwd();
     const transform = async (args, parse) => {
@@ -79,6 +79,8 @@ const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = [
                         plugins: build.initialOptions.plugins?.filter(plugin => plugin.name !== name),
                         stdin: { contents: testSourceCode, resolveDir, loader: "ts" },
                         sourcemap: false,
+                        watch: false,
+                        ...testBuildOptions,
                         write: false,
                     });
                     vm.runInNewContext(outputFiles[0].text, { require: createRequire(import.meta.url) }, { breakOnSigint: true });

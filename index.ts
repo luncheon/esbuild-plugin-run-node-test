@@ -10,7 +10,12 @@ import {
   TsType as SwcTsType,
 } from "@swc/core";
 import { Visitor as SwcVisitor } from "@swc/core/Visitor.js";
-import { OnLoadArgs as EsbuildOnLoadArgs, OnLoadResult as EsbuildOnLoadResult, PluginBuild as EsbuildPluginBuild } from "esbuild";
+import {
+  BuildOptions as EsbuildBuildOptions,
+  OnLoadArgs as EsbuildOnLoadArgs,
+  OnLoadResult as EsbuildOnLoadResult,
+  PluginBuild as EsbuildPluginBuild,
+} from "esbuild";
 import { createRequire } from "node:module";
 import path from "node:path";
 import vm from "node:vm";
@@ -62,7 +67,19 @@ class NodeTestRemovalVisitor extends SwcVisitor {
   }
 }
 
-const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = ["node:assert", "node:assert/strict"] } = {}) => {
+interface RunNodeTestOptions {
+  readonly filter?: RegExp;
+  readonly run?: boolean;
+  readonly removeImports?: readonly string[];
+  readonly testBuildOptions?: Readonly<EsbuildBuildOptions>;
+}
+
+const runNodeTest = ({
+  filter = /\.[cm]?[jt]sx?$/,
+  run = true,
+  removeImports = ["node:assert", "node:assert/strict"],
+  testBuildOptions,
+}: RunNodeTestOptions = {}) => {
   let testSourceCode = "";
   const resolveDir = process.cwd();
 
@@ -109,6 +126,8 @@ const runNodeTest = ({ filter = /\.[cm]?[jt]sx?$/, run = true, removeImports = [
             plugins: build.initialOptions.plugins?.filter(plugin => plugin.name !== name),
             stdin: { contents: testSourceCode, resolveDir, loader: "ts" },
             sourcemap: false,
+            watch: false,
+            ...testBuildOptions,
             write: false,
           });
           vm.runInNewContext(outputFiles[0].text, { require: createRequire(import.meta.url) }, { breakOnSigint: true });

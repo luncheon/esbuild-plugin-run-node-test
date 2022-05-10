@@ -151,6 +151,12 @@ runNodeTest({
     "node:assert",
     "node:assert/strict",
   ],
+
+  // esbuild options used to bundle tests.
+  // https://esbuild.github.io/api/
+  testBuildOptions: {
+    // define, external, loader, target, etc.
+  },
 });
 ```
 
